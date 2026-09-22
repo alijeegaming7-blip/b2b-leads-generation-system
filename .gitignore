@@ -1,0 +1,10 @@
+﻿apps/api-python/venv/
+apps/api-python/__pycache__/
+apps/api-python/*.pyc
+apps/api-python/ezitech.db
+apps/api-python/prospex_demo.db
+apps/dashboard/node_modules/
+apps/dashboard/dist/
+*.pyc
+__pycache__/
+.env.local

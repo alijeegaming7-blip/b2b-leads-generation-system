@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\Users\zohai\OneDrive\Desktop\ai prtoject promt\business-leads-ai-automation-main\business-leads-ai-automation-main\apps\api-python\main.py", line 15, in <module>
+    from app.routers import auth, health, campaigns, leads, email, crm, knowledge_base, analytics, export, workspace, settings as settings_router, cv, agents
+  File "C:\Users\zohai\OneDrive\Desktop\ai prtoject promt\business-leads-ai-automation-main\business-leads-ai-automation-main\apps\api-python\app\routers\health.py", line 2
+    Health check endpoint for monitoring and load balancers.
+           ^^^^^
+SyntaxError: invalid syntax
