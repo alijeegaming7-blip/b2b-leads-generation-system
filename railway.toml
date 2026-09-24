@@ -1,6 +1,7 @@
 [build]
 builder = "dockerfile"
-dockerfilePath = "apps/api-python/Dockerfile"
+dockerfilePath = "Dockerfile"
+buildCommand = ""
 
 [deploy]
 startCommand = "python -m uvicorn main:app --host 0.0.0.0 --port $PORT"

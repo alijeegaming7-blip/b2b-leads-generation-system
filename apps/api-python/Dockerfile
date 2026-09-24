@@ -10,17 +10,15 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy EVERYTHING from the repo root
-COPY . .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r apps/api-python/requirements.txt
+# Install Python dependencies first (cached layer)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright chromium
 RUN python -m playwright install chromium --with-deps || python -m playwright install chromium
 
-# Set working dir to the api-python app
-WORKDIR /app/apps/api-python
+# Copy application code
+COPY . .
 
 # Write demo config
 RUN echo '{"demo_mode": true, "demo_buy_link": "https://wa.me/923001234567?text=I+want+to+buy+Prospex", "demo_contact_name": "Zohai Agency", "demo_price": ""}' > demo_config.json
