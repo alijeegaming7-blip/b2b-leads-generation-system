@@ -32,6 +32,6 @@ openpyxl==3.1.5
 # ── Utilities ────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1
 python-slugify==8.0.4
-cuid2==2.0.3
+cuid2==2.0.1
 tenacity==9.0.0
 httpx==0.28.1
