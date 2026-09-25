@@ -37,5 +37,5 @@ export const api = {
   delete: <T>(p: string)                 => req<T>(p, { method: "DELETE" }),
 };
 
-// For SSE (EventSource) we need an absolute URL — use current host
-export const SSE_BASE = `${window.location.protocol}//${window.location.hostname}:3001/api`;
+// For SSE — use same origin (works for Railway, ngrok, localhost with proxy)
+export const SSE_BASE = `${window.location.protocol}//${window.location.host}/api`;

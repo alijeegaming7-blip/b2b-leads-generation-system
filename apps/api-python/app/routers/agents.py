@@ -263,6 +263,18 @@ async def start_agents(
             logger.warning(f"[agents/start] Campaign create failed ({_e}), continuing anyway")
 
     _coordinator.configure(ws_id, campaign_id)
+
+    # In demo mode: seed 30 pre-loaded leads AND cap agents at 30 leads total
+    from app.core.demo import is_demo
+    if is_demo():
+        body.max_leads = 30
+        logger.info("[agents/start] Demo mode — capping at 30 leads")
+        # Seed demo leads in background
+        try:
+            from app.core.demo_seeder import seed_demo_leads
+            asyncio.create_task(seed_demo_leads(ws_id, campaign_id))
+        except Exception as _se:
+            logger.warning(f"[agents/start] Demo seed failed: {_se}")
     logger.info(f"[agents/start] Coordinator configured: workspace={ws_id}, campaign={campaign_id}")
 
     targets = body.agent_ids or list(_specialists.keys())

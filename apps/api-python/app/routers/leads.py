@@ -152,6 +152,8 @@ async def list_leads(
     response = {"data": serialized, "total": total, "page": page, "limit": limit}
     if is_demo():
         response.update(demo_status_payload())
+        response["demo_limit"] = 30
+        response["demo_limit_reached"] = total >= 30
     return response
 
 
