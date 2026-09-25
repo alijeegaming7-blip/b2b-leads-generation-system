@@ -73,6 +73,32 @@ async def lifespan(app: FastAPI):
     ensure_pumps_running()
     logger.info("Agent event pumps started")
 
+    # In demo mode: auto-seed 30 pre-loaded leads so client sees them immediately
+    from app.core.demo import is_demo
+    if is_demo():
+        try:
+            from app.core.demo_seeder import seed_demo_leads
+            from app.core.database import AsyncSessionLocal
+            from app.models.workspace import Workspace
+            from sqlalchemy import select
+            async with AsyncSessionLocal() as _db:
+                ws_result = await _db.execute(select(Workspace).limit(1))
+                ws = ws_result.scalar_one_or_none()
+                if ws:
+                    from app.core.ids import new_id
+                    from app.models.campaign import Campaign
+                    cam_id = new_id()
+                    _db.add(Campaign(
+                        id=cam_id, name="Demo Leads", industry="general",
+                        location="Pakistan", your_service="digital services",
+                        workspace_id=ws.id, status="active",
+                    ))
+                    await _db.commit()
+                    seeded = await seed_demo_leads(ws.id, cam_id)
+                    logger.info(f"Demo mode: seeded {seeded} pre-loaded leads")
+        except Exception as _se:
+            logger.warning(f"Demo seed on startup failed: {_se}")
+
     # Install Playwright browsers if missing (non-blocking)
     try:
         import subprocess, sys

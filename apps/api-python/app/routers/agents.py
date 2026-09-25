@@ -282,11 +282,10 @@ async def start_agents(
     for aid in targets:
         agent = _specialists.get(aid)
         if agent:
-            # STOP any currently running agent first (fresh start)
-            if agent.status.value in ("running", "paused"):
-                agent.stop()
+            # Always stop first to allow re-running
+            agent.stop()
 
-            # Set category hint BEFORE start so it is used from the first cycle
+            # Set category hint BEFORE start
             if body.category and hasattr(agent, "set_category_hint"):
                 agent.set_category_hint(body.category)
                 logger.info(f"[agents/start] Set category hint for {aid}: {body.category}")

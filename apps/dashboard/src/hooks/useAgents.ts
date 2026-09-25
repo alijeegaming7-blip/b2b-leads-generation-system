@@ -40,65 +40,95 @@ export function useAgents() {
   const [connected,    setConnected]    = useState(false);
   const [loading,      setLoading]      = useState(true);
   const esRef = useRef<EventSource|null>(null);
+  // Track if component is mounted so we don't setState after unmount
+  const mountedRef = useRef(true);
 
   const fetchSnap = useCallback(async () => {
     try {
       const d = await api.get<{ agents: AgentState[]; coordinator: CoordinatorState }>("/agents");
+      if (!mountedRef.current) return;
       setAgents(d.agents ?? []);
       setCoordinator(d.coordinator ?? null);
-    } catch { /* ignore */ } finally { setLoading(false); }
+    } catch { /* ignore */ } finally {
+      if (mountedRef.current) setLoading(false);
+    }
   }, []);
 
   const connectSSE = useCallback(() => {
-    esRef.current?.close();
+    // Close any existing connection first
+    if (esRef.current) {
+      esRef.current.close();
+      esRef.current = null;
+    }
     const tok = localStorage.getItem("px_token");
-    if (!tok) return;
-    const es = new EventSource(`${SSE_BASE}/agents/stream?token=${encodeURIComponent(tok)}`);
-    esRef.current = es;
-    es.onopen  = () => setConnected(true);
-    es.onerror = () => setConnected(false);
-    es.onmessage = (e) => {
-      try {
-        const ev: AgentEvent = JSON.parse(e.data);
-        if (ev.event_type === "snapshot") {
-          const p = ev.payload as { agents: AgentState[]; coordinator: CoordinatorState };
-          setAgents(p.agents ?? []); setCoordinator(p.coordinator ?? null); setConnected(true);
-        } else if (ev.event_type === "status_change") {
-          const p = ev.payload as { new: AgentStatus };
-          setAgents(prev => prev.map(a => a.id === ev.agent_id ? { ...a, status: p.new } : a));
-        } else if (ev.event_type === "lead_found") {
-          setAgents(prev => prev.map(a => a.id === ev.agent_id ? { ...a, leads_found: a.leads_found+1, last_active: ev.timestamp } : a));
-          setEvents(prev => [ev, ...prev].slice(0, 200));
-        } else if (ev.event_type === "verified") {
-          const lead = ev.payload as unknown as SessionLead;
-          setLeads(prev => [lead, ...prev].slice(0, 200));
-          setCoordinator(prev => prev ? { ...prev, total_verified: prev.total_verified+1, total_received: prev.total_received+1 } : prev);
-          setEvents(prev => [ev, ...prev].slice(0, 200));
-        } else if (ev.event_type === "heartbeat" && ev.agent_id === "coordinator") {
-          const p = ev.payload as Record<string,number>;
-          setCoordinator(prev => prev ? { ...prev, total_received: p.total_received??prev.total_received, total_verified: p.total_verified??prev.total_verified } : prev);
-          setConnected(true);
-        } else if (ev.event_type === "error") {
-          setAgents(prev => prev.map(a => a.id === ev.agent_id ? { ...a, status:"error", errors:a.errors+1, last_error:(ev.payload.message as string)||"Unknown" } : a));
-        }
-      } catch { /* ignore */ }
-    };
-  }, []);
+    if (!tok) { setLoading(false); return; }
+
+    try {
+      const es = new EventSource(`${SSE_BASE}/agents/stream?token=${encodeURIComponent(tok)}`);
+      esRef.current = es;
+
+      es.onopen  = () => { if (mountedRef.current) setConnected(true); };
+      es.onerror = () => {
+        if (mountedRef.current) setConnected(false);
+        // Auto-reconnect after 3 seconds
+        setTimeout(() => {
+          if (mountedRef.current) connectSSE();
+        }, 3000);
+      };
+      es.onmessage = (e) => {
+        if (!mountedRef.current) return;
+        try {
+          const ev: AgentEvent = JSON.parse(e.data);
+          if (ev.event_type === "snapshot") {
+            const p = ev.payload as { agents: AgentState[]; coordinator: CoordinatorState };
+            setAgents(p.agents ?? []); setCoordinator(p.coordinator ?? null); setConnected(true); setLoading(false);
+          } else if (ev.event_type === "status_change") {
+            const p = ev.payload as { new: AgentStatus };
+            setAgents(prev => prev.map(a => a.id === ev.agent_id ? { ...a, status: p.new } : a));
+          } else if (ev.event_type === "lead_found") {
+            setAgents(prev => prev.map(a => a.id === ev.agent_id ? { ...a, leads_found: a.leads_found+1, last_active: ev.timestamp } : a));
+            setEvents(prev => [ev, ...prev].slice(0, 200));
+          } else if (ev.event_type === "verified") {
+            const lead = ev.payload as unknown as SessionLead;
+            setLeads(prev => [lead, ...prev].slice(0, 200));
+            setCoordinator(prev => prev ? { ...prev, total_verified: prev.total_verified+1, total_received: prev.total_received+1 } : prev);
+            setEvents(prev => [ev, ...prev].slice(0, 200));
+          } else if (ev.event_type === "heartbeat" && ev.agent_id === "coordinator") {
+            const p = ev.payload as Record<string,number>;
+            setCoordinator(prev => prev ? { ...prev, total_received: p.total_received??prev.total_received, total_verified: p.total_verified??prev.total_verified } : prev);
+            setConnected(true); setLoading(false);
+          } else if (ev.event_type === "error") {
+            setAgents(prev => prev.map(a => a.id === ev.agent_id ? { ...a, status:"error", errors:a.errors+1, last_error:(ev.payload.message as string)||"Unknown" } : a));
+          }
+        } catch { /* ignore */ }
+      };
+    } catch {
+      setConnected(false);
+      setLoading(false);
+    }
+  }, []); // eslint-disable-line
 
   useEffect(() => {
+    mountedRef.current = true;
     fetchSnap();
     connectSSE();
-    return () => { esRef.current?.close(); };
+    return () => {
+      mountedRef.current = false;
+      if (esRef.current) {
+        esRef.current.close();
+        esRef.current = null;
+      }
+    };
   }, [fetchSnap, connectSSE]);
 
   const startAll = useCallback(async (location: string, maxLeads: number, category?: string) => {
     await api.post("/agents/start", { location, max_leads: maxLeads, category: category ?? null });
-    await fetchSnap();
+    setTimeout(() => fetchSnap(), 1000); // refresh after 1s
   }, [fetchSnap]);
 
   const stopAll = useCallback(async () => {
     await api.post("/agents/stop-all", {});
-    await fetchSnap();
+    setTimeout(() => fetchSnap(), 500);
   }, [fetchSnap]);
 
   return { agents, coordinator, leads, events, connected, loading, startAll, stopAll, refresh: fetchSnap };

@@ -281,7 +281,9 @@ export default function DashboardPage() {
           </button>
 
           {!anyRunning
-            ? <button onClick={()=>net.startAll(`${city}, ${country}`,150,category)} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 14px", background:"#059669", border:"none", borderRadius:8, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+            ? <button onClick={async ()=>{
+                await net.startAll(`${city}, ${country}`,150,category);
+              }} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 14px", background:"#059669", border:"none", borderRadius:8, color:"#fff", fontSize:12, fontWeight:600, cursor:"pointer" }}>
                 <Play style={{width:12,height:12}}/>Start All Agents
               </button>
             : <button onClick={()=>net.stopAll()} style={{ display:"flex", alignItems:"center", gap:6, height:32, padding:"0 14px", background:"transparent", border:"1px solid rgba(239,68,68,.4)", borderRadius:8, color:"#f87171", fontSize:12, fontWeight:600, cursor:"pointer" }}>
